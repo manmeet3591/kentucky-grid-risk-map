@@ -1,0 +1,30 @@
+{
+  "reference": [
+    {
+      "label": "Dry season 2024",
+      "start": "2024-09-15",
+      "end": "2024-10-05"
+    },
+    {
+      "label": "Dry season 2025",
+      "start": "2025-08-25",
+      "end": "2025-10-05"
+    }
+  ],
+  "events": [
+    {
+      "id": "2025-02",
+      "label": "February 2025 flood",
+      "start": "2025-02-15",
+      "end": "2025-02-23",
+      "note": "Heavy rain on 15-16 Feb 2025 caused deadly flash flooding in eastern Kentucky (Pike County and neighbours), and rivers including the Ohio crested over the following week. Snow fell on 19-20 Feb, which can confuse radar water detection."
+    },
+    {
+      "id": "2025-04",
+      "label": "April 2025 flood",
+      "start": "2025-04-03",
+      "end": "2025-04-13",
+      "note": "Repeated storms on 2-6 Apr 2025 brought record multi-day rainfall to western and central Kentucky. Flooding hit Frankfort, Falmouth and Hopkinsville, and the Ohio River crested along the state's northern border the following week."
+    }
+  ]
+}

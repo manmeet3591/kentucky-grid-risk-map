@@ -1,0 +1,7 @@
+raw/canopy/
+raw/opera/
+raw/opera_tif/
+raw/opera_earthdata/
+work/
+__pycache__/
+.netrc

@@ -1,0 +1,86 @@
+{
+ "built": "2026-10-20",
+ "flood_source": "gibs",
+ "events": [
+  {
+   "id": "2025-02",
+   "label": "February 2025 flood",
+   "start": "2025-02-15",
+   "end": "2025-02-23",
+   "note": "Heavy rain on 15-16 Feb 2025 caused deadly flash flooding in eastern Kentucky (Pike County and neighbours), and rivers including the Ohio crested over the following week. Snow fell on 19-20 Feb, which can confuse radar water detection.",
+   "dates": [
+    "2025-02-15",
+    "2025-02-17",
+    "2025-02-19",
+    "2025-02-22"
+   ],
+   "bounds": [
+    [
+     36.202659729938006,
+     -89.59999999999998
+    ],
+    [
+     39.2,
+     -81.60717560343096
+    ]
+   ],
+   "new_water_km2": 968.3
+  },
+  {
+   "id": "2025-04",
+   "label": "April 2025 flood",
+   "start": "2025-04-03",
+   "end": "2025-04-13",
+   "note": "Repeated storms on 2-6 Apr 2025 brought record multi-day rainfall to western and central Kentucky. Flooding hit Frankfort, Falmouth and Hopkinsville, and the Ohio River crested along the state's northern border the following week.",
+   "dates": [
+    "2025-04-04",
+    "2025-04-06",
+    "2025-04-08",
+    "2025-04-11",
+    "2025-04-13"
+   ],
+   "bounds": [
+    [
+     36.202659729938006,
+     -89.59999999999998
+    ],
+    [
+     39.2,
+     -81.60717560343096
+    ]
+   ],
+   "new_water_km2": 1263.9
+  }
+ ],
+ "reference": [
+  {
+   "label": "Dry season 2024",
+   "start": "2024-09-15",
+   "end": "2024-10-05"
+  },
+  {
+   "label": "Dry season 2025",
+   "start": "2025-08-25",
+   "end": "2025-10-05"
+  }
+ ],
+ "reference_dates": [
+  "2024-09-16",
+  "2024-09-19",
+  "2024-09-21",
+  "2024-09-24",
+  "2024-09-26",
+  "2024-09-28",
+  "2024-10-01",
+  "2024-10-03",
+  "2025-09-16",
+  "2025-09-19",
+  "2025-09-23",
+  "2025-09-26",
+  "2025-10-01",
+  "2025-10-03",
+  "2025-10-05"
+ ],
+ "canopy": "USFS/NLCD Tree Canopy Cover 2021 (v2021-4), 30 m",
+ "corridor_half_width_m": 45
+}

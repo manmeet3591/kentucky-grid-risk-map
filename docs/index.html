@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kentucky Grid Risk Map</title>
+<meta name="description" content="Tree canopy along Kentucky transmission lines and critical facilities in flood water from NASA OPERA DSWx-S1 Sentinel-1 water maps (Feb and Apr 2025 floods).">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Kentucky Grid Risk Map</h1>
+    <p class="sub">Tree canopy along transmission lines · critical facilities in flood water (NASA OPERA DSWx-S1, Sentinel-1)</p>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-view="map">Map</button>
+    <button role="tab" aria-selected="false" data-view="table">Counties</button>
+    <button role="tab" aria-selected="false" data-view="method">Method &amp; limits</button>
+  </nav>
+</header>
+
+<main id="app">
+  <aside class="controls" aria-label="Controls">
+    <section>
+      <h2>Flood event</h2>
+      <div class="seg" id="events"></div>
+      <div class="evinfo" id="evinfo"></div>
+    </section>
+    <section>
+      <h2>County shading</h2>
+      <div class="seg" id="mode">
+        <button data-mode="canopy" class="on">Line canopy</button>
+        <button data-mode="flood">Flood water</button>
+        <button data-mode="none">None</button>
+      </div>
+      <p class="hint" id="modeHint"></p>
+    </section>
+    <section>
+      <h2>Layers</h2>
+      <label class="chk"><input type="checkbox" id="showLines" checked> Transmission lines, coloured by canopy</label>
+      <div class="sub-opts">
+        <label class="chk"><input type="checkbox" id="kvHigh" checked> 138–765 kV <span class="src">HIFLD</span></label>
+        <label class="chk"><input type="checkbox" id="kv69" checked> 69 kV <span class="src">OSM</span></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="showFlood" checked> Flood water (event vs dry season)</label>
+    </section>
+    <section>
+      <h2>Critical facilities</h2>
+      <div id="cats"></div>
+      <label class="chk mt8"><input type="checkbox" id="onlyWet"> Only flooded or near flood water</label>
+    </section>
+  </aside>
+
+  <section class="view" id="view-map">
+    <div id="map" role="region" aria-label="Map of Kentucky"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <aside class="detail" aria-label="Summary and county detail">
+    <div id="kpis" class="kpis"></div>
+    <div id="county"></div>
+    <h2 class="mt" id="rankTitle"></h2>
+    <ol id="rank" class="rank"></ol>
+    <h2 class="mt">Facilities in or near flood water</h2>
+    <p class="hint" id="wetHint"></p>
+    <ul id="wet" class="wet"></ul>
+  </aside>
+
+  <section class="view hidden" id="view-table">
+    <p class="hint">Click a column to sort. Flood columns refer to the selected event. Click a county name to open it on the map.</p>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+
+  <section class="view hidden prose" id="view-method">
+    <h2>What this map shows</h2>
+    <p>A screening view for Kentucky utilities and emergency managers, built from open data. It answers two questions: <b>which transmission lines run through the most trees</b> (more tree contact means more outage risk in wind, ice and storms), and <b>which critical facilities had flood water at or near them</b> when Sentinel-1 radar passed over during the February and April 2025 floods.</p>
+
+    <h3>1. Vegetation along transmission lines</h3>
+    <ul>
+      <li><b>Lines</b>: HIFLD Open <i>Electric Power Transmission Lines</i> (138, 161, 345, 500 and 765 kV in Kentucky; overhead only). HIFLD has <b>no 69 kV lines in Kentucky</b>, so 69 kV lines come from OpenStreetMap (<code>power=line</code>, <code>voltage=69000</code>). Ways shared with a higher-voltage circuit are left out because HIFLD already covers them.</li>
+      <li><b>Canopy</b>: USFS / NLCD Tree Canopy Cover <span id="m-canopy"></span>, from the MRLC web coverage service on its native Albers grid.</li>
+      <li>Each line is clipped to Kentucky and cut into ~1 km segments. Each segment gets a <b><span id="m-hw"></span> m buffer either side</b> (~90 m corridor: a typical right-of-way plus a fall-in margin for trees at its edge).</li>
+      <li>Score = <b>mean canopy cover (%)</b> of the 30 m cells in the corridor. We also report the share of cells with ≥ 50 % canopy. County values are length-weighted means over the line segments whose midpoint lies in the county. "km in heavy canopy" counts segments with mean canopy ≥ 40 %.</li>
+    </ul>
+
+    <h3>2. Critical facilities in flood water</h3>
+    <ul>
+      <li><b>Facilities</b>: OpenStreetMap via Overpass. Gas stations (<code>amenity=fuel</code>), hospitals, substations (<code>power=substation</code>), water and wastewater plants, and fuel terminals (oil/fuel industrial sites and fuel storage tanks). Tanks within 250 m of each other are merged into one terminal site.</li>
+      <li><b>Water</b>: NASA/JPL <b>OPERA DSWx-S1</b> (Dynamic Surface Water Extent from Sentinel-1 radar, 30 m). Classes: open water, inundated vegetation, not water, HAND-masked, layover/shadow.</li>
+      <li>For each event, every Sentinel-1 pass in the event window is compared with passes from two dry seasons (<span id="m-ref"></span>). <b>Flood water</b> = water on any event pass where no reference pass saw water. Water seen in both is normal water (rivers, lakes, ponds).</li>
+      <li>Facility status uses the grid cells around the OSM point (cells ~25 × 31 m):
+        <ul>
+          <li><span class="sw st-flooded"></span><b>Flooded</b>: ≥ 2 flood-water cells within the site window (3 × 3 cells ≈ 75 × 95 m; 5 × 5 for water plants and fuel terminals).</li>
+          <li><span class="sw st-near"></span><b>Near flood water</b>: not flooded, but flood water within ~110 m of the site window.</li>
+          <li><span class="sw st-water_edge"></span><b>Normal water edge</b>: water at the site in the dry-season passes too (river intakes, lagoons), so it isn't counted as flooded.</li>
+          <li><span class="sw st-dry"></span><b>Dry</b>: seen as not-water on at least one event pass.  <span class="sw st-unobserved"></span><b>Not observed</b>: no event pass covered the site (or only terrain-masked / radar-shadow pixels).</li>
+        </ul>
+      </li>
+      <li><b>How the data were read</b>: <span id="m-src"></span></li>
+    </ul>
+
+    <h3>Limitations and data gaps</h3>
+    <ul>
+      <li><b>Revisit gaps.</b> In 2025 Sentinel-1 passed over any one spot in Kentucky only every few days (Sentinel-1A alone until Sentinel-1C entered service), so floods that peaked and receded between passes are missed. In February 2025 <b>no pass with data covered a north–south strip of eastern Kentucky</b>: 19 counties from Mason, Lewis and Fleming south through Morgan, Breathitt, Perry, Knott, Leslie, Letcher and Harlan. That strip includes much of the 15–16 Feb flash flooding. Pike County was covered on 17 and 19 Feb, after the peak. Those sites show as "not observed", <i>not</i> as dry. Flash floods in narrow Appalachian valleys are also often narrower than the 30 m cells.</li>
+      <li><b>Radar confusions.</b> Smooth surfaces (parking lots, flat roofs, tank tops, wet snow, which fell on 19–20 Feb) can look like water. Flooding under dense trees or between buildings is often missed. Wind-roughened ponds can look dry. Treatment-plant basins and lagoons can show as "flood water" when the dry-season passes happened to miss them. Check flagged sites against local reports.</li>
+      <li><b>Pass timing.</b> A facility marked dry was dry <i>on the passes listed</i>, not necessarily at the flood peak.</li>
+      <li><b>OSM coverage.</b> OSM facility mapping is incomplete and uneven (e.g. many rural gas stations, small substations and water plants are missing or mapped only as points). Points are site centroids, not footprints. Utility and KYEM asset lists would improve this.</li>
+      <li><b>Line data.</b> HIFLD geometry is generalised and may be several years old. OSM 69 kV coverage is incomplete (and HIFLD has none). Underground lines are excluded. Distribution lines, where most tree-caused outages happen, aren't included.</li>
+      <li><b>Canopy vintage.</b> Canopy is 2021 data. Right-of-way clearing since then, storm damage and new growth aren't reflected, and 30 m cells blur the edge of a cleared corridor. Tree height, species and health matter as much as cover and aren't in this data.</li>
+      <li>This is a screening tool, not an engineering or vegetation-management assessment.</li>
+    </ul>
+
+    <h3>Data sources</h3>
+    <ul>
+      <li>Transmission lines: <a href="https://hifld-geoplatform.hub.arcgis.com/">HIFLD Open</a> Electric Power Transmission Lines (public domain); <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL).</li>
+      <li>Tree canopy: <a href="https://www.mrlc.gov/data/type/tree-canopy">USFS / NLCD Tree Canopy Cover</a>, CONUS 2021 (public domain).</li>
+      <li>Flood water: <a href="https://www.jpl.nasa.gov/go/opera/products/dswx-product-suite">NASA OPERA DSWx-S1</a> (PO.DAAC <code>OPERA_L3_DSWX-S1_V1</code>), served via <a href="https://nasa-gibs.github.io/gibs-api-docs/">NASA GIBS</a>; contains modified Copernicus Sentinel-1 data.</li>
+      <li>Facilities: OpenStreetMap via Overpass API (ODbL). Counties: US Census TIGERweb.</li>
+    </ul>
+    <p class="hint">Pipeline and code: see the repository README. Built <span class="built"></span>.</p>
+  </section>
+</main>
+<footer class="foot">Disaster Science Operations Center · prototype · data: HIFLD, USFS/NLCD, NASA OPERA/GIBS, © OpenStreetMap contributors, US Census · built <span class="built"></span></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
