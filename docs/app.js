@@ -17,21 +17,31 @@
   };
   const CANOPY_BREAKS = [10, 20, 30, 45, 60];          // % canopy in the corridor
   const FLOOD_BREAKS = [1, 3, 10, 30, 80];           // km² of flood water per county
+  const HEIGHT_BREAKS = [10, 13, 16, 19, 22];       // m, p95 tree height in the corridor
+  const FALL_BREAKS = [5, 10, 20, 35, 50];           // % of line length within fall-in reach of trees
   const HEAVY = 40;
+  const FALL_HI = 25;                                // % fall-in share for a segment to count as exposed
   const MODES = {
     canopy: "Length-weighted mean tree canopy in a 90 m corridor along transmission lines.",
+    fall: "Share of line length where trees (1 m canopy height map) are taller than their distance to the line.",
     flood: "Flood water (km²) seen by Sentinel-1 during the event that was dry in the reference seasons.",
     none: "County outlines only.",
   };
 
   const state = {
-    event: "2025-04", mode: "canopy", lines: true, kvHigh: true, kv69: true, flood: true,
+    event: "2025-04", mode: "canopy", lineBy: "canopy", lines: true, kvHigh: true, kv69: true, flood: true,
     cats: Object.fromEntries(Object.keys(CATS).map(k => [k, true])), onlyWet: false, selected: null,
   };
 
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const cls = (v, br) => { let i = 0; while (i < br.length && v >= br[i]) i++; return i; };
   const green = v => (v == null ? css("--nodata") : css(`--g${cls(v, CANOPY_BREAKS)}`));
+  const purple = v => (v == null ? css("--nodata") : css(`--p${cls(v, FALL_BREAKS)}`));
+  const tall = v => (v == null ? css("--nodata") : css(`--g${cls(v, HEIGHT_BREAKS)}`));
+  const pct = v => (v == null ? null : v * 100);
+  const lineColor = p => state.lineBy === "fall" ? purple(pct(p.fall)) : state.lineBy === "height" ? tall(p.hp95) : green(p.canopy);
+  const lineRank = p => state.lineBy === "fall" ? (p.fall ?? -1) : state.lineBy === "height" ? (p.hp95 ?? -1) : p.canopy;
+  const cFall = p => (p.h_km ? p.fall_km / p.h_km * 100 : null);
   const blue = v => (v == null ? css("--nodata") : css(`--b${cls(v, FLOOD_BREAKS)}`));
   const fmt = (v, d = 0) => (v == null ? "–" : Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d }));
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -81,7 +91,7 @@
     });
     lineLayer = L.geoJSON(D.lines, {
       renderer: lineRenderer, filter: f => lineOn(f.properties),
-      style: f => ({ color: green(f.properties.canopy), weight: weight(f.properties.kv), opacity: 1, lineCap: "butt" }),
+      style: f => ({ color: lineColor(f.properties), weight: weight(f.properties.kv), opacity: 1, lineCap: "butt" }),
       onEachFeature: (f, l) => l.bindTooltip(() => lineTip(f.properties), { className: "tt", sticky: true }),
     });
     facLayer = L.layerGroup().addTo(map);
@@ -91,6 +101,7 @@
     const p = f.properties, sel = state.selected === p.name;
     let fill = "transparent", op = 0;
     if (state.mode === "canopy") { fill = green(p.canopy); op = 0.42; }
+    if (state.mode === "fall") { fill = purple(cFall(p)); op = 0.5; }
     if (state.mode === "flood") { fill = blue(p.flood[state.event].new_water_km2); op = 0.6; }
     return { fillColor: fill, fillOpacity: op, color: sel ? css("--ink") : css("--axis"), weight: sel ? 3 : 0.8 };
   }
@@ -98,7 +109,8 @@
   function drawLines() {
     for (const l of [lineCase, lineLayer]) {
       l.clearLayers();
-      if (state.lines) { l.addData(D.lines); if (!map.hasLayer(l)) l.addTo(map); }
+      // the strongest exposure for the current colouring draws last, on top
+      if (state.lines) { l.addData({ type: "FeatureCollection", features: [...D.lines.features].sort((a, b) => lineRank(a.properties) - lineRank(b.properties)) }); if (!map.hasLayer(l)) l.addTo(map); }
       else map.removeLayer(l);
     }
   }
@@ -136,6 +148,7 @@
     return `<b>${esc(p.name)} County</b>
       <div class="m">Lines: ${fmt(p.line_km)} km · mean canopy ${fmt(p.canopy)} %</div>
       <div class="m">In heavy canopy (≥ ${HEAVY} %): ${fmt(p.hi_km)} km</div>
+      ${p.hp95 != null ? `<div class="m">Tree height p95 ${fmt(p.hp95)} m · fall-in reach on ${fmt(cFall(p))} % of line length</div>` : ""}
       <div class="m">${esc(ev().label)}: ${fmt(fl.new_water_km2, 1)} km² flood water · ${fmt(fl.flooded || 0)} flooded, ${fmt(fl.near || 0)} near</div>
       ${fl.observed_share < 0.5 ? `<div class="m">⚠ only ${fmt(fl.observed_share * 100)} % of the county was observed</div>` : ""}`;
   }
@@ -143,6 +156,10 @@
     const info = D.info[p.l] || {};
     return `<b>${p.kv} kV line segment</b>
       <div class="m">Canopy in corridor: <b style="display:inline">${fmt(p.canopy)} %</b> · ${fmt(p.dense * 100)} % of cells ≥ 50 %</div>
+      ${p.fall != null
+        ? `<div class="m">Tree height p95: <b style="display:inline">${p.hp95 ? `${fmt(p.hp95)} m` : "no trees"}</b> · fall-in reach: <b style="display:inline">${fmt(p.fall * 100)} %</b> of length</div>
+           <div class="m">Height imagery ${p.yr ?? "date unknown"} (Meta/WRI 1 m, ± several m)</div>`
+        : `<div class="m">Tree height: no data (cloud or outside map)</div>`}
       ${info.owner ? `<div class="m">Owner: ${esc(info.owner)}</div>` : ""}
       ${info.sub ? `<div class="m">${esc(info.sub)}</div>` : ""}
       <div class="m">${esc(p.county)} County · ${info.src === "OSM" ? "OpenStreetMap" : "HIFLD"} ${esc(info.id || "")}</div>`;
@@ -174,6 +191,9 @@
     const segs = D.lines.features.filter(f => lineOn(f.properties));
     const km = segs.reduce((s, f) => s + f.properties.km, 0);
     const hi = segs.filter(f => f.properties.canopy >= HEAVY).reduce((s, f) => s + f.properties.km, 0);
+    const hs = segs.filter(f => f.properties.fall != null);
+    const fallKm = hs.filter(f => f.properties.fall * 100 >= FALL_HI).reduce((s, f) => s + f.properties.km, 0);
+    const hKm = hs.reduce((s, f) => s + f.properties.km, 0);
     const mean = km ? segs.reduce((s, f) => s + f.properties.canopy * f.properties.km, 0) / km : null;
     const fs = D.fac.features.filter(f => state.cats[f.properties.cat]);
     const n = s => fs.filter(f => facStatus(f.properties) === s).length;
@@ -181,6 +201,7 @@
     document.getElementById("kpis").innerHTML = `
       <div class="kpi"><b>${fmt(km)} km</b><span>transmission lines shown</span></div>
       <div class="kpi"><b>${fmt(km ? hi / km * 100 : 0)} %</b><span>${fmt(hi)} km in heavy canopy (≥ ${HEAVY} %)</span></div>
+      ${hKm ? `<div class="kpi"><b>${fmt(fallKm / hKm * 100)} %</b><span>${fmt(fallKm)} km with trees in fall-in reach on ≥ ${FALL_HI} % of length</span></div>` : ""}
       <div class="kpi"><b>${fmt(n("flooded"))}</b><span><span class="sw st-flooded"></span>facilities flooded</span></div>
       <div class="kpi"><b>${fmt(n("near"))}</b><span><span class="sw st-near"></span>near flood water</span></div>
       <div class="kpi"><b>${fmt(ev().new_water_km2)} km²</b><span>flood water seen in Kentucky</span></div>
@@ -202,6 +223,9 @@
         <div><span>of which 138 kV and above</span><b>${fmt(p.hv_km)} km</b></div>
         <div><span>In heavy canopy (≥ ${HEAVY} %)</span><b>${fmt(p.hi_km)} km</b></div>
         <div><span>Corridor cells ≥ 50 % canopy</span><b>${fmt(p.line_km ? p.dense_km / p.line_km * 100 : 0)} %</b></div>
+        <div><span>Tree height p95 (length-weighted)</span><b>${p.hp95 != null ? `${fmt(p.hp95)} m` : "–"}</b></div>
+        <div><span>Line length in fall-in reach of trees</span><b>${p.h_km ? `${fmt(cFall(p))} % (${fmt(p.fall_km)} km)` : "–"}</b></div>
+        <div><span>Segments ≥ ${FALL_HI} % fall-in</span><b>${fmt(p.fall_hi_km)} km</b></div>
         <div class="h">${esc(ev().label)}</div>
         <div><span>Flood water</span><b>${fmt(fl.new_water_km2, 2)} km²</b></div>
         <div><span>County area observed</span><b>${fmt(fl.observed_share * 100)} %</b></div>
@@ -217,6 +241,7 @@
     const fs = D.counties.features.map(f => f.properties);
     let title, val, unit, d = 0;
     if (state.mode === "flood") { title = "Most flood water"; val = p => p.flood[state.event].new_water_km2; unit = " km²"; d = 1; }
+    else if (state.mode === "fall") { title = "Most line km within fall-in reach of trees"; val = p => p.fall_km; unit = " km"; }
     else { title = `Most line km in heavy canopy (≥ ${HEAVY} %)`; val = p => p.hi_km; unit = " km"; }
     document.getElementById("rankTitle").textContent = title;
     const top = fs.sort((a, b) => val(b) - val(a)).slice(0, 10);
@@ -244,11 +269,14 @@
 
   function renderLegend() {
     const parts = [];
-    if (state.lines || state.mode === "canopy") {
-      parts.push(`<div class="blk"><div class="t">Tree canopy in line corridor</div>
-        <div class="bar">${[0, 1, 2, 3, 4, 5].map(i => `<i style="background:var(--g${i})"></i>`).join("")}</div>
-        <div class="ends"><span>0</span>${CANOPY_BREAKS.map(b => `<span>${b}</span>`).join("")}<span>%</span></div></div>`);
-    }
+    const ramp = (t, v, br, u) => `<div class="blk"><div class="t">${t}</div>
+        <div class="bar">${[0, 1, 2, 3, 4, 5].map(i => `<i style="background:var(--${v}${i})"></i>`).join("")}</div>
+        <div class="ends"><span>0</span>${br.map(b => `<span>${b}</span>`).join("")}<span>${u}</span></div></div>`;
+    const by = state.lines ? state.lineBy : null;
+    if (by === "canopy" || state.mode === "canopy") parts.push(ramp(by === "canopy" ? "Tree canopy in line corridor" : "County: line canopy", "g", CANOPY_BREAKS, "%"));
+    if (by === "height") parts.push(ramp("Tree height in corridor (p95)", "g", HEIGHT_BREAKS, "m"));
+    if (by === "fall" || state.mode === "fall") parts.push(ramp("Line length in fall-in reach of trees", "p", FALL_BREAKS, "%"));
+    if (by && by !== "canopy") parts.push(`<div class="blk"><div class="row"><span class="sw sq" style="background:var(--nodata)"></span>No height data (cloud)</div></div>`);
     if (state.mode === "flood") {
       parts.push(`<div class="blk"><div class="t">County flood water (km²)</div>
         <div class="bar">${[0, 1, 2, 3, 4, 5].map(i => `<i style="background:var(--b${i})"></i>`).join("")}</div>
@@ -269,6 +297,7 @@
     const cols = [
       ["County", p => p.name, 0], ["Line km", p => p.line_km, 0], ["Mean canopy %", p => p.canopy, 0],
       [`km ≥ ${HEAVY} % canopy`, p => p.hi_km, 0],
+      ["Tree height p95 m", p => p.hp95, 0], ["Fall-in % of length", p => cFall(p), 0], ["Fall-in km", p => p.fall_km, 0],
       ...Object.entries(CATS).map(([k, c]) => [c.label.split(" ")[0], p => p.fac[k] || 0, 0]),
       ["Flood water km²", p => p.flood[state.event].new_water_km2, 1],
       ["Observed %", p => p.flood[state.event].observed_share * 100, 0],
@@ -336,6 +365,11 @@
     document.getElementById("modeHint").textContent = MODES[state.mode];
     const chk = (id, key, fn) => document.getElementById(id).onchange = e => { state[key] = e.target.checked; fn(); };
     chk("showLines", "lines", () => { drawLines(); renderLegend(); });
+    document.querySelectorAll("#lineBy button").forEach(b => b.onclick = () => {
+      state.lineBy = b.dataset.by;
+      document.querySelectorAll("#lineBy button").forEach(x => x.classList.toggle("on", x === b));
+      drawLines(); renderLegend();
+    });
     chk("kvHigh", "kvHigh", () => { drawLines(); kpis(); });
     chk("kv69", "kv69", () => { drawLines(); kpis(); });
     chk("showFlood", "flood", () => { drawFlood(); renderLegend(); });
@@ -346,6 +380,11 @@
     const m = D.meta;
     document.getElementById("m-canopy").textContent = m.canopy;
     document.getElementById("m-hw").textContent = m.corridor_half_width_m;
+    if (m.height) {
+      const y = m.height.years;
+      document.getElementById("m-hyears").textContent = `${y.p5}–${y.p95} (median ${y.median})`;
+      document.getElementById("m-hyears2").textContent = `${y.p5}–${y.p95}`;
+    }
     document.getElementById("m-ref").textContent = `${m.reference.map(r => `${dayY(r.start)} – ${dayY(r.end)}`).join(" and ")}; ${m.reference_dates.length} passes with data`;
     document.getElementById("m-src").textContent = m.flood_source === "earthdata"
       ? "the original 30 m B01_WTR GeoTIFFs from PO.DAAC (NASA Earthdata), regridded to ~25 × 31 m lon/lat cells with nearest neighbour."

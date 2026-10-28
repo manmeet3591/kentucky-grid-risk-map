@@ -31,6 +31,10 @@ def main():
              "dense_km": round(L.get("dense_km", 0), 1),
              "hi_km": round(L.get("km_hi", 0), 1),
              "hv_km": round(L.get("km_hv", 0), 1),
+             "h_km": round(L.get("km_h", 0), 1),
+             "hp95": round(L["hp95_km"] / L["km_h"], 1) if L.get("km_h") else None,
+             "fall_km": round(L.get("fall_km", 0), 1),
+             "fall_hi_km": round(L.get("km_fall_hi", 0), 1),
              "fac": {}, "flood": {}}
         for f in fac:
             fp = f["properties"]
@@ -58,6 +62,13 @@ def main():
     meta = {"built": dt.date.today().isoformat(), "flood_source": fmeta["source"], "events": events,
             "reference": ev["reference"], "reference_dates": fmeta["events"][ev["events"][0]["id"]]["ref_dates"],
             "canopy": "USFS/NLCD Tree Canopy Cover 2021 (v2021-4), 30 m", "corridor_half_width_m": 45}
+    lf = json.loads((OUT / "lines.geojson").read_text())["features"]
+    yrs = sorted(f["properties"]["yr"] for f in lf if f["properties"].get("yr"))
+    if yrs:
+        q = lambda x: yrs[min(len(yrs) - 1, int(x * len(yrs)))]
+        meta["height"] = {"source": "Meta / WRI global canopy height map v1 (Tolan et al. 2024), 1 m",
+                          "years": {"p5": q(0.05), "median": q(0.5), "p95": q(0.95)},
+                          "fall_hi": 0.25}
     (OUT / "meta.json").write_text(json.dumps(meta, indent=1))
     print(f"counties: {len(feats)}; events: {[e['id'] for e in events]}")
 

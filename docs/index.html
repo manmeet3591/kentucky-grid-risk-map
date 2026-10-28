@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kentucky Grid Risk Map</title>
-<meta name="description" content="Tree canopy along Kentucky transmission lines and critical facilities in flood water from NASA OPERA DSWx-S1 Sentinel-1 water maps (Feb and Apr 2025 floods).">
+<meta name="description" content="Tree canopy and tree height (fall-in reach) along Kentucky transmission lines and critical facilities in flood water from NASA OPERA DSWx-S1 Sentinel-1 water maps (Feb and Apr 2025 floods).">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <header class="top">
   <div>
     <h1>Kentucky Grid Risk Map</h1>
-    <p class="sub">Tree canopy along transmission lines · critical facilities in flood water (NASA OPERA DSWx-S1, Sentinel-1)</p>
+    <p class="sub">Tree canopy and tree height along transmission lines · critical facilities in flood water (NASA OPERA DSWx-S1, Sentinel-1)</p>
   </div>
   <nav class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-view="map">Map</button>
@@ -32,6 +32,7 @@
       <h2>County shading</h2>
       <div class="seg" id="mode">
         <button data-mode="canopy" class="on">Line canopy</button>
+        <button data-mode="fall">Fall-in</button>
         <button data-mode="flood">Flood water</button>
         <button data-mode="none">None</button>
       </div>
@@ -39,8 +40,13 @@
     </section>
     <section>
       <h2>Layers</h2>
-      <label class="chk"><input type="checkbox" id="showLines" checked> Transmission lines, coloured by canopy</label>
+      <label class="chk"><input type="checkbox" id="showLines" checked> Transmission lines, coloured by</label>
       <div class="sub-opts">
+        <div class="seg" id="lineBy">
+          <button data-by="canopy" class="on">Canopy %</button>
+          <button data-by="height">Tree height</button>
+          <button data-by="fall">Fall-in</button>
+        </div>
         <label class="chk"><input type="checkbox" id="kvHigh" checked> 138–765 kV <span class="src">HIFLD</span></label>
         <label class="chk"><input type="checkbox" id="kv69" checked> 69 kV <span class="src">OSM</span></label>
       </div>
@@ -75,7 +81,7 @@
 
   <section class="view hidden prose" id="view-method">
     <h2>What this map shows</h2>
-    <p>A screening view for Kentucky utilities and emergency managers, built from open data. It answers two questions: <b>which transmission lines run through the most trees</b> (more tree contact means more outage risk in wind, ice and storms), and <b>which critical facilities had flood water at or near them</b> when Sentinel-1 radar passed over during the February and April 2025 floods.</p>
+    <p>A screening view for Kentucky utilities and emergency managers, built from open data. It answers two questions: <b>which transmission lines run through the most trees, and trees tall enough to fall onto them</b> (more tree contact means more outage risk in wind, ice and storms), and <b>which critical facilities had flood water at or near them</b> when Sentinel-1 radar passed over during the February and April 2025 floods.</p>
 
     <h3>1. Vegetation along transmission lines</h3>
     <ul>
@@ -83,6 +89,9 @@
       <li><b>Canopy</b>: USFS / NLCD Tree Canopy Cover <span id="m-canopy"></span>, from the MRLC web coverage service on its native Albers grid.</li>
       <li>Each line is clipped to Kentucky and cut into ~1 km segments. Each segment gets a <b><span id="m-hw"></span> m buffer either side</b> (~90 m corridor: a typical right-of-way plus a fall-in margin for trees at its edge).</li>
       <li>Score = <b>mean canopy cover (%)</b> of the 30 m cells in the corridor. We also report the share of cells with ≥ 50 % canopy. County values are length-weighted means over the line segments whose midpoint lies in the county. "km in heavy canopy" counts segments with mean canopy ≥ 40 %.</li>
+      <li><b>Tree height</b>: Meta / World Resources Institute <i>global canopy height map</i> v1 (Tolan et al. 2024, 1 m, from Maxar satellite imagery; AWS Open Data <code>s3://dataforgood-fb-data/forests/v1/</code>). Imagery dates behind Kentucky's line corridors: <span id="m-hyears"></span>. Only the corridors are kept; pixels under the product's cloud mask are dropped, and segments where over half the corridor is masked show "no data".</li>
+      <li><b>Tree height p95</b> = 95th percentile height of the tree pixels (≥ 3 m) in the corridor. It describes the tall trees present, not how many there are: a segment with a single tree row can score high. Segments with almost no trees (&lt; 100 m² of tree pixels) get 0.</li>
+      <li><b>Fall-in reach</b> = share of the segment's length (in 10 m steps along the line) where, on either side, at least 5 m² of trees are <b>taller than their horizontal distance to the line centreline</b>, i.e. could reach the centreline if they fell straight towards it. County values are km-weighted; "fall-in km" = Σ segment length × share. Segments with ≥ 25 % fall-in count as exposed.</li>
     </ul>
 
     <h3>2. Critical facilities in flood water</h3>
@@ -108,7 +117,9 @@
       <li><b>Pass timing.</b> A facility marked dry was dry <i>on the passes listed</i>, not necessarily at the flood peak.</li>
       <li><b>OSM coverage.</b> OSM facility mapping is incomplete and uneven (e.g. many rural gas stations, small substations and water plants are missing or mapped only as points). Points are site centroids, not footprints. Utility and KYEM asset lists would improve this.</li>
       <li><b>Line data.</b> HIFLD geometry is generalised and may be several years old. OSM 69 kV coverage is incomplete (and HIFLD has none). Underground lines are excluded. Distribution lines, where most tree-caused outages happen, aren't included.</li>
-      <li><b>Canopy vintage.</b> Canopy is 2021 data. Right-of-way clearing since then, storm damage and new growth aren't reflected, and 30 m cells blur the edge of a cleared corridor. Tree height, species and health matter as much as cover and aren't in this data.</li>
+      <li><b>Canopy vintage.</b> Canopy is 2021 data. Right-of-way clearing since then, storm damage and new growth aren't reflected, and 30 m cells blur the edge of a cleared corridor. Species and health matter as much as cover and height and aren't in this data.</li>
+      <li><b>Tree height accuracy and vintage.</b> The 1 m height map is a model estimate from single satellite images, not lidar. Its published mean absolute error is roughly 3 m against airborne lidar, larger for tall closed forest (heights tend to be underestimated) and at the edges of crowns and clearings. Heights are integer metres. The imagery is mostly <span id="m-hyears2"></span>, older than the 2021 canopy data, so right-of-way clearing, storm damage and growth since then are not reflected.</li>
+      <li><b>Fall-in is a geometric screen.</b> It measures to the line centreline, ignores conductor height and sag (a tree must be taller than √(distance² + conductor height²) to touch a wire), phase spacing on wide lines, slope, lean and wind direction. Line positions from HIFLD/OSM can be off by tens of metres, which moves trees in and out of reach. Treat it as a relative ranking, not a list of trees to cut.</li>
       <li>This is a screening tool, not an engineering or vegetation-management assessment.</li>
     </ul>
 
@@ -116,15 +127,16 @@
     <ul>
       <li>Transmission lines: <a href="https://hifld-geoplatform.hub.arcgis.com/">HIFLD Open</a> Electric Power Transmission Lines (public domain); <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL).</li>
       <li>Tree canopy: <a href="https://www.mrlc.gov/data/type/tree-canopy">USFS / NLCD Tree Canopy Cover</a>, CONUS 2021 (public domain).</li>
+      <li>Tree height: <a href="https://registry.opendata.aws/dataforgood-fb-forests/">Meta / WRI High Resolution Canopy Height Maps</a> (CC BY 4.0). Tolan, J. et al. (2024), <i>Very high resolution canopy height maps from RGB imagery using self-supervised vision transformer and convolutional decoder trained on aerial lidar</i>, Remote Sensing of Environment 300, 113888.</li>
       <li>Flood water: <a href="https://www.jpl.nasa.gov/go/opera/products/dswx-product-suite">NASA OPERA DSWx-S1</a> (PO.DAAC <code>OPERA_L3_DSWX-S1_V1</code>), served via <a href="https://nasa-gibs.github.io/gibs-api-docs/">NASA GIBS</a>; contains modified Copernicus Sentinel-1 data.</li>
       <li>Facilities: OpenStreetMap via Overpass API (ODbL). Counties: US Census TIGERweb.</li>
     </ul>
     <p class="hint">Pipeline and code: see the repository README. Built <span class="built"></span>.</p>
   </section>
 </main>
-<footer class="foot">Disaster Science Operations Center · prototype · data: HIFLD, USFS/NLCD, NASA OPERA/GIBS, © OpenStreetMap contributors, US Census · built <span class="built"></span></footer>
+<footer class="foot">Disaster Science Operations Center · prototype · data: HIFLD, USFS/NLCD, Meta/WRI canopy height, NASA OPERA/GIBS, © OpenStreetMap contributors, US Census · built <span class="built"></span></footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

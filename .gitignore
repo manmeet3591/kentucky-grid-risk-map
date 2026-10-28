@@ -5,3 +5,4 @@ raw/opera_earthdata/
 work/
 __pycache__/
 .netrc
+raw/canopy_height/

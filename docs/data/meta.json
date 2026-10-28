@@ -1,5 +1,5 @@
 {
- "built": "2026-10-20",
+ "built": "2026-10-28",
  "flood_source": "gibs",
  "events": [
   {
@@ -82,5 +82,14 @@
   "2025-10-05"
  ],
  "canopy": "USFS/NLCD Tree Canopy Cover 2021 (v2021-4), 30 m",
- "corridor_half_width_m": 45
+ "corridor_half_width_m": 45,
+ "height": {
+  "source": "Meta / WRI global canopy height map v1 (Tolan et al. 2024), 1 m",
+  "years": {
+   "p5": 2015,
+   "median": 2017,
+   "p95": 2020
+  },
+  "fall_hi": 0.25
+ }
 }

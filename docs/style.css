@@ -13,6 +13,8 @@
   --g0: #d4ead0; --g1: #a6d29b; --g2: #6fb562; --g3: #3d9131; --g4: #1d6c16; --g5: #0c4a08;
   /* flood water: one hue (blue) */
   --b0: #e3eefc; --b1: #b7d3f6; --b2: #86b6ef; --b3: #3987e5; --b4: #1c5cab; --b5: #0d366b;
+  /* tree fall-in reach along lines: one hue (purple) */
+  --p0: #ece4f5; --p1: #d0bde8; --p2: #ad8fd6; --p3: #8a62c0; --p4: #6640a0; --p5: #3f2170;
   --nodata: #ecebe6;
   /* facility status (status palette; always paired with a label) */
   --st-flooded: #d03b3b; --st-near: #ec835a; --st-edge: #7d96b4; --st-dry: #a9a8a2; --st-unobs: #c9c8c1;
@@ -24,6 +26,7 @@
     --grid: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, 0.10); --accent: #3987e5;
     --g0: #22351f; --g1: #2f5527; --g2: #3f7a31; --g3: #57a044; --g4: #7fc568; --g5: #b6e49f;
     --b0: #142338; --b1: #183b66; --b2: #1f5799; --b3: #3987e5; --b4: #6da7ec; --b5: #b7d3f6;
+    --p0: #2a1f38; --p1: #3f2c5c; --p2: #5a3d88; --p3: #7d5bb5; --p4: #a786d6; --p5: #d2bdf0;
     --nodata: #2a2a28;
     --st-dry: #6f6e69; --st-unobs: #4a4a46;
   }
@@ -34,6 +37,7 @@
   --grid: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, 0.10); --accent: #3987e5;
   --g0: #22351f; --g1: #2f5527; --g2: #3f7a31; --g3: #57a044; --g4: #7fc568; --g5: #b6e49f;
   --b0: #142338; --b1: #183b66; --b2: #1f5799; --b3: #3987e5; --b4: #6da7ec; --b5: #b7d3f6;
+  --p0: #2a1f38; --p1: #3f2c5c; --p2: #5a3d88; --p3: #7d5bb5; --p4: #a786d6; --p5: #d2bdf0;
   --nodata: #2a2a28;
   --st-dry: #6f6e69; --st-unobs: #4a4a46;
 }
