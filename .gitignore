@@ -6,3 +6,4 @@ work/
 __pycache__/
 .netrc
 raw/canopy_height/
+raw/power/

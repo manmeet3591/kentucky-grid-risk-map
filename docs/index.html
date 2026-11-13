@@ -6,7 +6,7 @@
 <title>Kentucky Grid Risk Map</title>
 <meta name="description" content="Tree canopy and tree height (fall-in reach) along Kentucky transmission lines and critical facilities in flood water from NASA OPERA DSWx-S1 Sentinel-1 water maps (Feb and Apr 2025 floods).">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <header class="top">
@@ -17,6 +17,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-view="map">Map</button>
     <button role="tab" aria-selected="false" data-view="table">Counties</button>
+    <button role="tab" aria-selected="false" data-view="risk">Multi-hazard risk</button>
     <button role="tab" aria-selected="false" data-view="method">Method &amp; limits</button>
   </nav>
 </header>
@@ -73,6 +74,60 @@
     <p class="hint" id="wetHint"></p>
     <ul id="wet" class="wet"></ul>
   </aside>
+
+
+  <section class="view hidden" id="view-risk">
+    <aside class="controls" aria-label="Risk controls">
+      <section>
+        <h2>Map shows</h2>
+        <div class="seg" id="rmode">
+          <button data-mode="risk" class="on">Risk</button>
+          <button data-mode="hazard">Hazard</button>
+          <button data-mode="exposure">Exposure</button>
+        </div>
+        <p class="hint" id="rmodeHint"></p>
+      </section>
+      <section>
+        <h2>Hazard weights</h2>
+        <div id="rweights"></div>
+        <button class="link" id="rreset">Reset to equal weights</button>
+      </section>
+      <section>
+        <h2>View</h2>
+        <div class="seg" id="rview"><button data-v="map" class="on">Map</button><button data-v="table">Ranked table</button></div>
+      </section>
+      <section class="prose rnote">
+        <h2>How it works</h2>
+        <p><b>Risk = √(Hazard × Exposure)</b>, a geometric mean, so a county needs both hazard and assets to rank high. All scores are percentiles across Kentucky's 120 counties (0–100), so they are <i>relative</i>: 100 means the highest in Kentucky, not severe in absolute terms.</p>
+        <p><b>Hazards</b> (NASA POWER daily, <span id="rm-years"></span>, ~55 km grid):</p>
+        <ul>
+          <li><b>Damaging wind</b>: median annual max of daily max 10 m wind, and days/yr ≥ <span class="rt-wind"></span> m/s.</li>
+          <li><b>Extreme rain</b> (flood proxy): median annual max 1-day rain, and days/yr ≥ <span class="rt-rain"></span> mm. Daily values above <span class="rt-qc"></span> mm would be dropped as data artefacts (none occurred in Kentucky).</li>
+          <li><b>Extreme heat</b>: median annual max Tmax, and days/yr ≥ <span class="rt-heat"></span> °C.</li>
+          <li><b>Ice &amp; cold</b>: wintry-precipitation days/yr (≥ <span class="rt-icep"></span> mm with Tmin ≤ 0 °C and Tmax ≤ <span class="rt-icetx"></span> °C, a proxy for freezing rain, sleet and wet-snow load), and days/yr with Tmin ≤ <span class="rt-cold"></span> °C.</li>
+        </ul>
+        <p>The <span id="rm-cells"></span> grid cells are interpolated bilinearly to points every 0.02° inside each county and averaged. Each metric is ranked across counties, and each hazard is the mean of its two ranks.</p>
+        <p><b>Exposure</b>: weighted asset count, ranked across counties. Weights: <span id="rm-expw"></span>. Assets come from OpenStreetMap (this map's facility layer) and the KGFM county table (power plants, EAGLE-I customers). Lines come from HIFLD and OSM.</p>
+        <p><b>Limits</b>: MERRA-2 cells (~55 km) smooth out local extremes such as tornadoes, derechos, flash floods and ice storms, and neighbouring counties share the same cells. The grid also has artefacts; for example, heat ranks high in north-east Kentucky along the Ohio River. Freezing rain needs a temperature profile that daily surface data can't resolve, so the ice index measures how often near-freezing wet days occur, not ice accretion. OSM asset counts are incomplete. This is a screening view, not an engineering assessment.</p>
+      </section>
+    </aside>
+    <div class="rcenter">
+      <div id="rmapwrap" class="rmapwrap">
+        <div id="rmap" role="region" aria-label="Map of Kentucky county risk"></div>
+        <div class="legend" id="rlegend"></div>
+      </div>
+      <div id="rtablewrap" class="hidden rtablewrap">
+        <p class="hint">Ranked by the current hazard weights. Click a column to sort, or a county to open it on the map.</p>
+        <div class="tablewrap"><table id="rtbl"></table></div>
+      </div>
+    </div>
+    <aside class="detail" aria-label="Risk detail">
+      <div id="rkpis" class="kpis"></div>
+      <div id="rcounty"></div>
+      <h2 class="mt" id="rrankTitle"></h2>
+      <ol id="rrank" class="rank"></ol>
+    </aside>
+  </section>
 
   <section class="view hidden" id="view-table">
     <p class="hint">Click a column to sort. Flood columns refer to the selected event. Click a county name to open it on the map.</p>
@@ -137,6 +192,7 @@
 <footer class="foot">Disaster Science Operations Center · prototype · data: HIFLD, USFS/NLCD, Meta/WRI canopy height, NASA OPERA/GIBS, © OpenStreetMap contributors, US Census · built <span class="built"></span></footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="app.js?v=2"></script>
+<script src="risk.js?v=1"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

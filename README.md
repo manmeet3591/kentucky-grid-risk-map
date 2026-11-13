@@ -78,6 +78,16 @@ python build_counties.py    # -> docs/data/counties.geojson, meta.json
 
 Flood events and reference windows live in `pipeline/events.json`; add an event there and rerun the last three steps. Preview: `python -m http.server -d docs 8000`.
 
+## Multi-hazard risk tab
+
+County-level multi-hazard risk for Kentucky critical infrastructure. This replaces the earlier DSOC prototype that was built for Kenya by mistake, and reuses its method.
+
+- **Hazards** (NASA POWER daily, MERRA-2 based, ~55 km, 2001–2024; `pipeline/fetch_hazards.py`): damaging wind (annual max daily max 10 m wind; days ≥ 12 m/s), extreme rain / flood proxy (annual max 1-day rain; days ≥ 50 mm; Kenya rainfall QC kept: > 200 mm/day treated as artefact, none occurred), extreme heat (annual max Tmax; days ≥ 35 °C), ice & cold (wintry-precipitation days: ≥ 2.5 mm with Tmin ≤ 0 °C and Tmax ≤ 4 °C; days with Tmin ≤ −15 °C). The grid is bilinearly interpolated to 0.02° points in each county and averaged. Each metric is ranked across the 120 counties, and each hazard is the mean of its two ranks.
+- **Exposure**: weighted count of power plants (5), fuel terminals (4), substations (3), hospitals (3), water/wastewater plants (2) and gas stations (0.5), plus 1 unit per 50 km of ≥ 138 kV line, per 100 km of 69 kV line and per 10,000 electricity customers, ranked across counties. Power plants and EAGLE-I customers come from `../kentucky-grid-fm/data/processed/county_static.parquet`; everything else comes from this project's layers.
+- **Risk = √(Hazard × Exposure)**, with hazard weights set in the dashboard. All scores are relative percentiles within Kentucky.
+- Rebuild: `python pipeline/fetch_hazards.py && python pipeline/build_risk.py` (after `build_counties.py`) → `docs/data/risk.json`.
+- Limits: ~55 km cells smooth out tornadoes, derechos, flash floods and ice storms, and grid artefacts exist (e.g. the high heat ranks in north-east Kentucky). The ice index counts near-freezing wet days, not ice accretion. OSM asset counts are incomplete.
+
 ## Limitations and data gaps
 
 - **OPERA revisit gaps.** In early 2025 Sentinel-1A alone covered Kentucky, so any one spot was imaged only every few days. In the February window **no pass with data covered 19 eastern counties** (Mason/Lewis/Fleming south to Breathitt, Perry, Knott, Leslie, Letcher, Harlan), the core of the 15–16 Feb flash floods. Pike County was imaged only on 17 and 19 Feb, after the peak. Short flash floods in narrow valleys are largely invisible to this method. "Not observed" is not "dry".

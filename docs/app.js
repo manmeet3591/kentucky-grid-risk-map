@@ -341,8 +341,10 @@
 
   function showView(v) {
     document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === v));
-    for (const id of ["map", "table", "method"]) document.getElementById(`view-${id}`).classList.toggle("hidden", id !== v);
-    document.querySelector(".detail").classList.toggle("hidden", v !== "map");
+    for (const id of ["map", "table", "method", "risk"]) document.getElementById(`view-${id}`).classList.toggle("hidden", id !== v);
+    document.querySelector("#app > .detail").classList.toggle("hidden", v !== "map");
+    document.querySelector("#app > .controls").classList.toggle("hidden", v === "risk");
+    if (v === "risk") window.RiskView.show();
     if (v === "table") renderTable();
     if (v === "map") map.invalidateSize();
   }
